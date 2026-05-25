@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="te">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Telugu Voice Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=Noto+Sans+Telugu:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080b10;
+    --surface: #0e1219;
+    --surface2: #161c26;
+    --border: #1f2937;
+    --accent: #f97316;
+    --accent2: #fb923c;
+    --accent3: #fbbf24;
+    --text: #e8edf5;
+    --muted: #64748b;
+    --green: #34d399;
+    --red: #f87171;
+  }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 80px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 40% at 50% -10%, rgba(249,115,22,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 60% at 90% 80%, rgba(251,191,36,0.04) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 700px;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 44px;
+  }
+
+  .logo-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+
+  .logo-icon {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    box-shadow: 0 8px 32px rgba(249,115,22,0.35);
+  }
+
+  h1 { font-size: clamp(28px, 5vw, 46px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+  .h1-te { color: var(--accent); display: block; font-size: 0.55em; font-weight: 600; font-family: 'Noto Sans Telugu', sans-serif; margin-bottom: 2px; }
+  .h1-en { background: linear-gradient(90deg, var(--text), #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+  .free-badge {
+    display: inline-block;
+    background: rgba(52,211,153,0.12);
+    border: 1px solid rgba(52,211,153,0.3);
+    color: var(--green);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    padding: 4px 14px;
+    border-radius: 100px;
+    margin-top: 10px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin-bottom: 14px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(249,115,22,0.35), transparent);
+  }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  textarea {
+    width: 100%;
+    min-height: 170px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-family: 'Noto Sans Telugu', sans-serif;
+    font-size: 17px;
+    line-height: 1.9;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+
+  .bottom-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    gap: 10px;
+  }
+
+  .char-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .char-count.warn { color: var(--accent2); }
+
+  .info-note {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    background: rgba(249,115,22,0.06);
+    border: 1px solid rgba(249,115,22,0.15);
+    border-radius: 6px;
+    padding: 5px 10px;
+  }
+
+  /* Speed control */
+  .speed-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .speed-row label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .speed-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .speed-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(249,115,22,0.5);
+    transition: transform 0.15s;
+  }
+
+  .speed-row input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+  .speed-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--accent2);
+    min-width: 38px;
+    text-align: right;
+  }
+
+  /* Buttons */
+  .actions { display: flex; gap: 10px; margin-top: 16px; }
+
+  .btn-gen {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    color: #000;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px; font-weight: 800;
+    border: none; border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 24px rgba(249,115,22,0.3);
+  }
+
+  .btn-gen:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(249,115,22,0.5); }
+  .btn-gen:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .btn-clear {
+    padding: 14px 18px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--muted);
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-clear:hover { border-color: var(--accent); color: var(--accent2); }
+
+  /* Status */
+  .status {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 12px; padding: 11px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px; color: var(--muted);
+    min-height: 42px;
+  }
+
+  .s-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; transition: background 0.3s; }
+  .s-dot.loading { background: var(--accent); animation: blink 0.8s infinite; }
+  .s-dot.done { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .s-dot.error { background: var(--red); }
+  @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+  /* Results */
+  .result-card {
+    display: none;
+    background: linear-gradient(135deg, rgba(249,115,22,0.07), rgba(251,191,36,0.04));
+    border: 1px solid rgba(249,115,22,0.25);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin-top: 14px;
+    animation: fadeUp 0.35s ease;
+  }
+
+  .result-card.show { display: block; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+  .result-card h3 {
+    font-size: 14px; font-weight: 700;
+    color: var(--accent2);
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .audio-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+
+  .audio-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+
+  .audio-item-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  audio { width: 100%; accent-color: var(--accent); }
+
+  .dl-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .btn-dl {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    color: #000;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 800;
+    border-radius: 8px; text-decoration: none;
+    transition: all 0.2s;
+    box-shadow: 0 4px 16px rgba(249,115,22,0.25);
+  }
+
+  .btn-dl:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(249,115,22,0.4); }
+
+  .note {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--muted);
+    text-align: center; margin-top: 22px; line-height: 1.7;
+  }
+
+  /* Chunk progress */
+  .chunk-progress {
+    display: none;
+    margin-top: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .progress-bar-wrap {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo-row">
+      <div class="logo-icon">🎙</div>
+      <h1>
+        <span class="h1-te">తెలుగు వాయిస్ స్టూడియో</span>
+        <span class="h1-en">Telugu Voice Studio</span>
+      </h1>
+    </div>
+    <div class="free-badge">✦ 100% FREE — No API Key Needed</div>
+  </header>
+
+  <!-- Text input -->
+  <div class="card">
+    <div class="section-label">తెలుగు వచనం — Telugu Text</div>
+    <textarea id="teluguText"
+      placeholder="ఇక్కడ తెలుగు వచనం టైప్ చేయండి లేదా పేస్ట్ చేయండి..."
+      maxlength="10000"
+      oninput="updateCount()"></textarea>
+    <div class="bottom-row">
+      <span class="char-count" id="charCount">0 / 10000 characters</span>
+      <span class="info-note">Long text auto-splits into chunks</span>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="card">
+    <div class="section-label">Settings</div>
+    <div class="speed-row">
+      <label>Speed</label>
+      <input type="range" id="speedSlider" min="0.5" max="1.5" step="0.05" value="1.0" oninput="updateSpeed()">
+      <span class="speed-val" id="speedVal">1.00x</span>
+    </div>
+
+    <div class="actions">
+      <button class="btn-gen" id="genBtn" onclick="generate()">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+        Generate Audio
+      </button>
+      <button class="btn-clear" onclick="clearAll()">Clear</button>
+    </div>
+
+    <div class="status" id="status">
+      <div class="s-dot" id="sDot"></div>
+      <div style="flex:1">
+        <span id="statusMsg">Enter Telugu text and click Generate.</span>
+        <div class="chunk-progress" id="chunkProgress">
+          <span id="chunkText"></span>
+          <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="result-card" id="resultCard">
+    <h3>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+      Audio Ready!
+    </h3>
+    <div class="audio-list" id="audioList"></div>
+    <div class="dl-row" id="dlRow"></div>
+  </div>
+
+  <p class="note">
+    Uses Google Translate's TTS engine — 100% free, no account needed.<br>
+    Works best in Chrome. Long text is split into chunks automatically.
+  </p>
+</div>
+
+<script>
+const MAX_CHUNK = 200; // Google Translate TTS limit per request
+
+function updateCount() {
+  const len = document.getElementById('teluguText').value.length;
+  const el = document.getElementById('charCount');
+  el.textContent = `${len} / 10000 characters`;
+  el.className = 'char-count' + (len > 8000 ? ' warn' : '');
+}
+
+function updateSpeed() {
+  const v = parseFloat(document.getElementById('speedSlider').value);
+  document.getElementById('speedVal').textContent = v.toFixed(2) + 'x';
+}
+
+function clearAll() {
+  document.getElementById('teluguText').value = '';
+  updateCount();
+  document.getElementById('resultCard').classList.remove('show');
+  setStatus('Cleared.', '');
+}
+
+function setStatus(msg, state = '') {
+  document.getElementById('statusMsg').textContent = msg;
+  document.getElementById('sDot').className = 's-dot' + (state ? ' ' + state : '');
+  document.getElementById('chunkProgress').style.display = state === 'loading' ? 'block' : 'none';
+}
+
+function setProgress(current, total) {
+  document.getElementById('chunkText').textContent = `Processing chunk ${current} of ${total}...`;
+  document.getElementById('progressBar').style.width = ((current / total) * 100) + '%';
+}
+
+// Split text into chunks ≤ MAX_CHUNK chars, splitting on sentence/word boundaries
+function splitText(text) {
+  const chunks = [];
+  // Split on sentence endings first
+  const sentences = text.match(/[^।.!?]+[।.!?]*/g) || [text];
+  let current = '';
+  for (const sentence of sentences) {
+    if ((current + sentence).length <= MAX_CHUNK) {
+      current += sentence;
+    } else {
+      if (current.trim()) chunks.push(current.trim());
+      // If single sentence > MAX_CHUNK, split by words
+      if (sentence.length > MAX_CHUNK) {
+        const words = sentence.split(' ');
+        current = '';
+        for (const word of words) {
+          if ((current + ' ' + word).trim().length <= MAX_CHUNK) {
+            current = (current + ' ' + word).trim();
+          } else {
+            if (current) chunks.push(current);
+            current = word;
+          }
+        }
+      } else {
+        current = sentence;
+      }
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks.filter(c => c.length > 0);
+}
+
+// Fetch audio blob for one chunk from Google Translate TTS
+async function fetchChunkAudio(text, slow) {
+  const target = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=te&slow=${slow}&client=gtx`;
+  // Try direct first, fallback to CORS proxies
+  const proxies = [
+    target,
+    `https://corsproxy.io/?${encodeURIComponent(target)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+  ];
+  for (const url of proxies) {
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) continue;
+      const blob = await resp.blob();
+      if (blob.size > 0) return blob;
+    } catch (e) { continue; }
+  }
+  throw new Error('All fetch attempts failed. Try a VPN or different network.');
+}
+
+// Merge multiple MP3 blobs into one
+async function mergeAudioBlobs(blobs) {
+  if (blobs.length === 1) return blobs[0];
+  const arrays = await Promise.all(blobs.map(b => b.arrayBuffer()));
+  const total = arrays.reduce((s, a) => s + a.byteLength, 0);
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const arr of arrays) {
+    merged.set(new Uint8Array(arr), offset);
+    offset += arr.byteLength;
+  }
+  return new Blob([merged], { type: 'audio/mpeg' });
+}
+
+async function generate() {
+  const text = document.getElementById('teluguText').value.trim();
+  if (!text) { setStatus('⚠ Please enter some Telugu text.', 'error'); return; }
+
+  const slow = parseFloat(document.getElementById('speedSlider').value) < 0.85;
+
+  document.getElementById('genBtn').disabled = true;
+  document.getElementById('resultCard').classList.remove('show');
+  document.getElementById('audioList').innerHTML = '';
+  document.getElementById('dlRow').innerHTML = '';
+
+  const chunks = splitText(text);
+  setStatus(`Generating audio (${chunks.length} chunk${chunks.length > 1 ? 's' : ''})...`, 'loading');
+  document.getElementById('chunkProgress').style.display = chunks.length > 1 ? 'block' : 'none';
+
+  try {
+    const blobs = [];
+    for (let i = 0; i < chunks.length; i++) {
+      setProgress(i + 1, chunks.length);
+      const blob = await fetchChunkAudio(chunks[i], slow);
+      blobs.push(blob);
+      // Small delay to avoid rate limiting
+      if (i < chunks.length - 1) await new Promise(r => setTimeout(r, 300));
+    }
+
+    // Build result UI
+    const audioList = document.getElementById('audioList');
+    const dlRow = document.getElementById('dlRow');
+
+    if (blobs.length === 1) {
+      // Single audio
+      const url = URL.createObjectURL(blobs[0]);
+      audioList.innerHTML = `
+        <div class="audio-item">
+          <div class="audio-item-label">Full Audio</div>
+          <audio controls src="${url}"></audio>
+        </div>`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'telugu-audio.mp3';
+      a.className = 'btn-dl';
+      a.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> Download MP3`;
+      dlRow.appendChild(a);
+    } else {
+      // Multiple chunks — show merged + individual
+      setStatus('Merging audio chunks...', 'loading');
+      const merged = await mergeAudioBlobs(blobs);
+      const mergedUrl = URL.createObjectURL(merged);
+
+      audioList.innerHTML = `
+        <div class="audio-item">
+          <div class="audio-item-label">✦ Full Audio (Merged)</div>
+          <audio controls src="${mergedUrl}"></audio>
+        </div>`;
+
+      // Individual chunks
+      blobs.forEach((blob, i) => {
+        const url = URL.createObjectURL(blob);
+        audioList.innerHTML += `
+          <div class="audio-item">
+            <div class="audio-item-label">Part ${i + 1} — "${chunks[i].substring(0, 40)}${chunks[i].length > 40 ? '...' : ''}"</div>
+            <audio controls src="${url}"></audio>
+          </div>`;
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `telugu-part-${i + 1}.mp3`;
+        a.className = 'btn-dl';
+        a.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> Part ${i + 1}`;
+        dlRow.appendChild(a);
+      });
+
+      // Merged download button first
+      const mergedBtn = document.createElement('a');
+      mergedBtn.href = mergedUrl;
+      mergedBtn.download = 'telugu-audio-full.mp3';
+      mergedBtn.className = 'btn-dl';
+      mergedBtn.style.order = '-1';
+      mergedBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> Download Full MP3`;
+      dlRow.insertBefore(mergedBtn, dlRow.firstChild);
+    }
+
+    document.getElementById('resultCard').classList.add('show');
+    setStatus(`Done! ${blobs.length > 1 ? blobs.length + ' chunks merged.' : 'Audio ready.'}`, 'done');
+
+  } catch (err) {
+    setStatus('Error: ' + err.message + ' — Try shorter text or check your connection.', 'error');
+  }
+
+  document.getElementById('genBtn').disabled = false;
+}
+</script>
+</body>
+</html>
