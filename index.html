@@ -492,24 +492,17 @@ function splitText(text) {
   return chunks.filter(c => c.length > 0);
 }
 
-// Fetch audio blob for one chunk from Google Translate TTS
+// Fetch audio blob via Apps Script proxy
 async function fetchChunkAudio(text, slow) {
-  const target = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=te&slow=${slow}&client=gtx`;
-  // Try direct first, fallback to CORS proxies
-  const proxies = [
-    target,
-    `https://corsproxy.io/?${encodeURIComponent(target)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
-  ];
-  for (const url of proxies) {
-    try {
-      const resp = await fetch(url);
-      if (!resp.ok) continue;
-      const blob = await resp.blob();
-      if (blob.size > 0) return blob;
-    } catch (e) { continue; }
-  }
-  throw new Error('All fetch attempts failed. Try a VPN or different network.');
+  const proxyUrl = `https://script.google.com/macros/s/AKfycbzjzf-w6zJUiR62gD1dGqkdP77E-IqKfrV0GwcMjRwzNMkzB1n2JQgpLsHA8zpsYQRv/exec?text=${encodeURIComponent(text)}&slow=${slow}`;
+  const resp = await fetch(proxyUrl);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const data = await resp.json();
+  if (!data.audio) throw new Error(`No audio returned from proxy.`);
+  const byteChars = atob(data.audio);
+  const byteArr = new Uint8Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+  return new Blob([byteArr], { type: data.type || `audio/mpeg` });
 }
 
 // Merge multiple MP3 blobs into one
