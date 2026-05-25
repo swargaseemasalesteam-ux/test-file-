@@ -519,28 +519,71 @@ async function mergeAudioBlobs(blobs) {
   return new Blob([merged], { type: 'audio/mpeg' });
 }
 
-// Apply speed to audio blob using Web Audio API offline rendering
+// Apply speed WITHOUT pitch change using phase vocoder (time-stretch)
 async function applySpeed(blob, speed) {
-  if (Math.abs(speed - 1.0) < 0.05) return URL.createObjectURL(blob); // no change needed
+  if (Math.abs(speed - 1.0) < 0.05) return URL.createObjectURL(blob);
   const arrayBuffer = await blob.arrayBuffer();
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   const decoded = await audioCtx.decodeAudioData(arrayBuffer);
-  const newDuration = decoded.duration / speed;
-  const offlineCtx = new OfflineAudioContext(
-    decoded.numberOfChannels,
-    Math.ceil(decoded.sampleRate * newDuration),
-    decoded.sampleRate
-  );
-  const source = offlineCtx.createBufferSource();
-  source.buffer = decoded;
-  source.playbackRate.value = speed;
-  source.connect(offlineCtx.destination);
-  source.start(0);
-  const rendered = await offlineCtx.startRendering();
-  // Encode rendered AudioBuffer to WAV
-  const wavBlob = audioBufferToWav(rendered);
   await audioCtx.close();
+
+  // Time-stretch using overlap-add (OLA) — preserves pitch
+  const stretched = timeStretch(decoded, speed);
+  const wavBlob = audioBufferToWav(stretched);
   return URL.createObjectURL(wavBlob);
+}
+
+// Simple OLA (Overlap-Add) time stretching — no pitch change
+function timeStretch(audioBuffer, speed) {
+  const numChannels = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const inputLength = audioBuffer.length;
+  const outputLength = Math.round(inputLength / speed);
+
+  const frameSize = 2048;
+  const hopOut = Math.round(frameSize / 4);
+  const hopIn = Math.round(hopOut * speed);
+
+  // Create output buffer
+  const outCtx = new OfflineAudioContext(numChannels, outputLength, sampleRate);
+  const outputData = [];
+  for (let c = 0; c < numChannels; c++) {
+    outputData.push(new Float32Array(outputLength));
+  }
+
+  // Hanning window
+  const window = new Float32Array(frameSize);
+  for (let i = 0; i < frameSize; i++) {
+    window[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / frameSize));
+  }
+
+  // OLA processing
+  let inPos = 0;
+  let outPos = 0;
+  while (inPos + frameSize <= inputLength && outPos + frameSize <= outputLength) {
+    for (let c = 0; c < numChannels; c++) {
+      const inputData = audioBuffer.getChannelData(c);
+      for (let i = 0; i < frameSize; i++) {
+        outputData[c][outPos + i] += inputData[inPos + i] * window[i];
+      }
+    }
+    inPos += hopIn;
+    outPos += hopOut;
+  }
+
+  // Normalize to avoid clipping
+  for (let c = 0; c < numChannels; c++) {
+    let max = 0;
+    for (let i = 0; i < outputLength; i++) max = Math.max(max, Math.abs(outputData[c][i]));
+    if (max > 0.98) {
+      for (let i = 0; i < outputLength; i++) outputData[c][i] /= max * 1.02;
+    }
+  }
+
+  // Build AudioBuffer
+  const outBuffer = new AudioBuffer({ numberOfChannels: numChannels, length: outputLength, sampleRate });
+  for (let c = 0; c < numChannels; c++) outBuffer.copyToChannel(outputData[c], c);
+  return outBuffer;
 }
 
 // Convert AudioBuffer to WAV blob
