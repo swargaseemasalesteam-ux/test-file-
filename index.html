@@ -519,105 +519,11 @@ async function mergeAudioBlobs(blobs) {
   return new Blob([merged], { type: 'audio/mpeg' });
 }
 
-// Apply speed WITHOUT pitch change using phase vocoder (time-stretch)
+// Return blob URL directly — speed applied via playbackRate on <audio> element
 async function applySpeed(blob, speed) {
-  if (Math.abs(speed - 1.0) < 0.05) return URL.createObjectURL(blob);
-  const arrayBuffer = await blob.arrayBuffer();
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const decoded = await audioCtx.decodeAudioData(arrayBuffer);
-  await audioCtx.close();
-
-  // Time-stretch using overlap-add (OLA) — preserves pitch
-  const stretched = timeStretch(decoded, speed);
-  const wavBlob = audioBufferToWav(stretched);
-  return URL.createObjectURL(wavBlob);
+  return URL.createObjectURL(blob);
 }
 
-// Simple OLA (Overlap-Add) time stretching — no pitch change
-function timeStretch(audioBuffer, speed) {
-  const numChannels = audioBuffer.numberOfChannels;
-  const sampleRate = audioBuffer.sampleRate;
-  const inputLength = audioBuffer.length;
-  const outputLength = Math.round(inputLength / speed);
-
-  const frameSize = 2048;
-  const hopOut = Math.round(frameSize / 4);
-  const hopIn = Math.round(hopOut * speed);
-
-  // Create output buffer
-  const outCtx = new OfflineAudioContext(numChannels, outputLength, sampleRate);
-  const outputData = [];
-  for (let c = 0; c < numChannels; c++) {
-    outputData.push(new Float32Array(outputLength));
-  }
-
-  // Hanning window
-  const window = new Float32Array(frameSize);
-  for (let i = 0; i < frameSize; i++) {
-    window[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / frameSize));
-  }
-
-  // OLA processing
-  let inPos = 0;
-  let outPos = 0;
-  while (inPos + frameSize <= inputLength && outPos + frameSize <= outputLength) {
-    for (let c = 0; c < numChannels; c++) {
-      const inputData = audioBuffer.getChannelData(c);
-      for (let i = 0; i < frameSize; i++) {
-        outputData[c][outPos + i] += inputData[inPos + i] * window[i];
-      }
-    }
-    inPos += hopIn;
-    outPos += hopOut;
-  }
-
-  // Normalize to avoid clipping
-  for (let c = 0; c < numChannels; c++) {
-    let max = 0;
-    for (let i = 0; i < outputLength; i++) max = Math.max(max, Math.abs(outputData[c][i]));
-    if (max > 0.98) {
-      for (let i = 0; i < outputLength; i++) outputData[c][i] /= max * 1.02;
-    }
-  }
-
-  // Build AudioBuffer
-  const outBuffer = new AudioBuffer({ numberOfChannels: numChannels, length: outputLength, sampleRate });
-  for (let c = 0; c < numChannels; c++) outBuffer.copyToChannel(outputData[c], c);
-  return outBuffer;
-}
-
-// Convert AudioBuffer to WAV blob
-function audioBufferToWav(buffer) {
-  const numChannels = buffer.numberOfChannels;
-  const sampleRate = buffer.sampleRate;
-  const numSamples = buffer.length;
-  const byteLength = 44 + numSamples * numChannels * 2;
-  const arrayBuf = new ArrayBuffer(byteLength);
-  const view = new DataView(arrayBuf);
-  const writeStr = (offset, str) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
-  writeStr(0, 'RIFF');
-  view.setUint32(4, byteLength - 8, true);
-  writeStr(8, 'WAVE');
-  writeStr(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, numChannels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * numChannels * 2, true);
-  view.setUint16(32, numChannels * 2, true);
-  view.setUint16(34, 16, true);
-  writeStr(36, 'data');
-  view.setUint32(40, numSamples * numChannels * 2, true);
-  let offset = 44;
-  for (let i = 0; i < numSamples; i++) {
-    for (let ch = 0; ch < numChannels; ch++) {
-      const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
-      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-      offset += 2;
-    }
-  }
-  return new Blob([arrayBuf], { type: 'audio/wav' });
-}
 
 async function generate() {
   const text = document.getElementById('teluguText').value.trim();
@@ -661,10 +567,15 @@ async function generate() {
         <div class="audio-item-label">✦ Full Audio (Speed: ${speed.toFixed(2)}x)</div>
         <audio controls src="${finalUrl}" id="mainAudio"></audio>
       </div>`;
+    // Apply playback speed — Chrome handles this natively with no pitch change
+    setTimeout(() => {
+      const audioEl = document.getElementById('mainAudio');
+      if (audioEl) audioEl.playbackRate = speed;
+    }, 100);
 
     const a = document.createElement('a');
     a.href = finalUrl;
-    a.download = 'telugu-audio.mp3';
+    a.download = 'telugu-audio.mp3'; // downloaded at original speed — playback speed applies when listening
     a.className = 'btn-dl';
     a.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> Download MP3`;
     dlRow.appendChild(a);
